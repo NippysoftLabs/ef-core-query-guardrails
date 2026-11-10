@@ -1,7 +1,8 @@
 namespace Shop;
 
 /// <summary>
-/// Every list query takes a page, so no list can return the whole table.
+/// The list queries in this repo take a page, so they cannot return the whole table.
+/// Nothing forces a new list method to take one; that is review.
 /// </summary>
 public sealed record PageRequest
 {

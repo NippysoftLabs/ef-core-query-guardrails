@@ -18,7 +18,7 @@ public sealed class OrderQueryTests(TestDatabase database) : IClassFixture<TestD
         var counter = new QueryCounter();
         await using var db = database.CreateContext(counter);
 
-        // Page 3: offset 20 and size 10 differ. With equal values EF Core 10 sends one parameter for both.
+        // Page 3: offset 20 and size 10 differ. With equal values, EF Core 10.0.14 on SQLite sent one parameter for both.
         await OrderQueries.ListRecentAsync(db, new PageRequest(3, 10));
 
         SnapshotAssert.Matches("ListRecent", counter.Commands);

@@ -2,8 +2,8 @@ namespace Shop.Tests.Guardrails;
 
 /// <summary>
 /// Compares the SQL a use case sent with an approved file. The file holds command text only,
-/// without parameter values. The text can still depend on the values (EF Core 10 sends one
-/// parameter for Skip and Take when both are equal), so each test uses fixed inputs.
+/// without parameter values. The text can still depend on the values (with EF Core 10.0.14 and
+/// SQLite, Skip and Take with equal values shared one parameter), so each test uses fixed inputs.
 /// </summary>
 public static class SqlSnapshot
 {
