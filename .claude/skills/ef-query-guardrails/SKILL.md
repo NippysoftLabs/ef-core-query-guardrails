@@ -14,6 +14,6 @@ Before you say the change is done:
    - `*_stays_within_query_budget`: the use case now sends a different number of commands. A count that grows with the page size is an N+1. Rewrite the query so the database does the work in one command; do not raise the budget constant.
    - `*_tracks_nothing`: a read now tracks entities. Project to a DTO or add `AsNoTracking()`.
    - `RuleTests`: a fixed rule broke (Skip/Take without OrderBy, First without OrderBy or filter, a filter EF Core cannot translate, a page outside 1..100).
-4. A new use case needs the same three tests and a snapshot a person has reviewed.
+4. A new use case needs the same three tests, data that fills the page each test asks for, and a snapshot a person has reviewed.
 
-This skill is a request, not a lock: the agent may skip it. Run the same `dotnet test` in CI, or in a Claude Code `Stop` hook of type `command` that exits with code 2 when the tests fail, so the check does not depend on the agent, and have a person review every change to `Snapshots/` and to the budget constants.
+This skill is a request, not a lock: the agent may skip it. This repository also runs the same `dotnet test` in CI (`.github/workflows/test.yml`) and in a Claude Code `Stop` hook of type `command` that exits with code 2 when the tests fail (`.claude/settings.json`), so the check does not depend on the agent. A person reviews every change to `Snapshots/` and to the budget constants.

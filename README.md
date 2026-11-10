@@ -22,6 +22,8 @@ Each read use case in `src/Shop/OrderQueries.cs` has three tests in `tests/Shop.
 
 The commands are captured by `QueryCounter`, a `DbCommandInterceptor` that records every reader, scalar and non-query command EF Core sends, sync or async.
 
+Each of these tests first asserts that the query returned rows. The count does not depend on the size of the table, but it does depend on the page having rows: an N+1 sends one command per row, so on an empty page it sends one command and tracks nothing, and the budget and tracking tests would pass. The test database seeds 120 orders so every page the tests ask for is full.
+
 Fixed rules live in `ShopContext.ApplyRules` and in `PageRequest`. They throw before any SQL is sent:
 
 - `Skip`/`Take` without `OrderBy` throws (`RowLimitingOperationWithoutOrderByWarning` turned into an error).
@@ -58,20 +60,30 @@ Branch `agent/order-line-totals` shows the checks catching a real N+1. The commi
 
 `main` includes both commits. To see the failure yourself: `git checkout 43544d8 && dotnet test`. Later commits on `main` add a test for the `First` rule, so `main` runs 15 tests.
 
-## The agent skill
+## The skill asks; CI and the hook enforce
 
-`.claude/skills/ef-query-guardrails/SKILL.md` asks an agent such as Claude Code to run `dotnet test` before it hands over a change, and to report failures instead of editing tests or approving snapshots. A skill is an instruction the model may or may not follow. The enforcement is the test run itself: run `dotnet test` in CI, or in a Claude Code `Stop` hook of type `command` that exits with code 2 when the tests fail, and have a person review changes to `Snapshots/` and to the budget constants.
+`.claude/skills/ef-query-guardrails/SKILL.md` asks an agent such as Claude Code to run `dotnet test` before it hands over a change, and to report failures instead of editing tests or approving snapshots. A skill is an instruction the model may or may not follow. The enforcement is the test run itself, and this repository ships both places where it runs:
 
-The exit code matters. `dotnet test` returns 1 when a test fails, and for a [Claude Code hook](https://code.claude.com/docs/en/hooks) any exit code other than 0 or 2 is a non-blocking error: Claude stops anyway. Only exit code 2 keeps Claude from stopping, so the hook has to map the failure to 2, for example `dotnet test || exit 2`.
+- **CI:** `.github/workflows/test.yml` runs `dotnet test -p:ContinuousIntegrationBuild=true` on every push and pull request, with the SDK from `global.json`. A failing run blocks a merge only if branch protection requires this check to pass; set that in the repository settings on GitHub.
+- **Claude Code `Stop` hook:** `.claude/settings.json` runs the tests every time Claude tries to finish a turn in this project:
+
+  ```
+  cd "$CLAUDE_PROJECT_DIR" && dotnet test 1>&2 || exit 2
+  ```
+
+  The exit code matters. `dotnet test` returns 1 when a test fails, and for a [Claude Code hook](https://code.claude.com/docs/en/hooks) any exit code other than 0 or 2 is a non-blocking error: Claude stops anyway. Exit code 2 keeps Claude from stopping, and the hook's stderr, here the test output, becomes the reason Claude sees. Claude Code ends the turn anyway after stop hooks have continued it eight times in a row. The hook runs the whole suite at every stop, even when nothing in the code changed; remove it from `.claude/settings.json` if that is too slow for you.
+
+A person still reviews changes to `Snapshots/` and to the budget constants.
 
 ## What this does not catch
 
 - **Slow SQL.** One command can still be slow. The snapshot shows the SQL, not its execution plan.
-- **Client evaluation in the final `Select`.** EF Core allows it and nothing throws. The snapshot catches it only when it changes the SQL.
+- **Client evaluation in the final `Select`.** EF Core allows it and nothing throws. The snapshot catches it only when it changes the SQL, for example when the method takes the whole entity; then the entity is tracked and the tracking test fails too.
 - **Explicit client evaluation.** `AsEnumerable()` before `Where` and `Take` sends one command that reads the whole table. No rule throws and the budget passes; the snapshot fails, and so does the tracking test when the query loads entities without `AsNoTracking`.
 - **Commands outside EF Core.** A `DbCommand` created from the same connection is not seen by the interceptor.
 - **Provider differences.** SQLite is not your production database. The same LINQ can produce different SQL and different results on SQL Server or PostgreSQL. Run the snapshots against the provider you ship.
 - **Someone approving bad SQL.** The checks are only as good as the review of `Snapshots/` and of the budgets.
+- **A new test without data.** The full-page assertion covers the tests in this repository. A new guard test that asks for an empty page, or a project whose test database starts empty, loses the budget and tracking checks for an N+1.
 
 ## Why the snapshot is hand-written
 
@@ -85,6 +97,8 @@ tests/Shop.Tests/            OrderQueryTests, RuleTests, OrderTotalsTests
 tests/Shop.Tests/Guardrails/ QueryCounter, SqlSnapshot, SnapshotAssert, TestDatabase
 tests/Shop.Tests/Snapshots/  approved SQL, one file per use case
 .claude/skills/              the agent skill
+.claude/settings.json        the Stop hook that runs the tests
+.github/workflows/test.yml   the CI run
 ```
 
 ## License
