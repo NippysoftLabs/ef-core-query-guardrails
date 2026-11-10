@@ -1,0 +1,6 @@
+bin/
+obj/
+*.received.sql
+TestResults/
+.vs/
+*.user
