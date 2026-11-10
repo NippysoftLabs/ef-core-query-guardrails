@@ -16,4 +16,4 @@ Before you say the change is done:
    - `RuleTests`: a fixed rule broke (Skip/Take without OrderBy, First without OrderBy or filter, a filter EF Core cannot translate, a page outside 1..100).
 4. A new use case needs the same three tests and a snapshot a person has reviewed.
 
-This skill is a request, not a lock: the agent may skip it. Run the same `dotnet test` in CI, or in a Claude Code `Stop` hook of type `command`, so the check does not depend on the agent, and have a person review every change to `Snapshots/` and to the budget constants.
+This skill is a request, not a lock: the agent may skip it. Run the same `dotnet test` in CI, or in a Claude Code `Stop` hook of type `command` that exits with code 2 when the tests fail, so the check does not depend on the agent, and have a person review every change to `Snapshots/` and to the budget constants.

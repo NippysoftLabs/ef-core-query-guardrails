@@ -60,13 +60,15 @@ Branch `agent/order-line-totals` shows the checks catching a real N+1. The commi
 
 ## The agent skill
 
-`.claude/skills/ef-query-guardrails/SKILL.md` asks an agent such as Claude Code to run `dotnet test` before it hands over a change, and to report failures instead of editing tests or approving snapshots. A skill is an instruction the model may or may not follow. The enforcement is the test run itself: run `dotnet test` in CI, or in a Claude Code `Stop` hook of type `command` that blocks the stop when it fails, and have a person review changes to `Snapshots/` and to the budget constants.
+`.claude/skills/ef-query-guardrails/SKILL.md` asks an agent such as Claude Code to run `dotnet test` before it hands over a change, and to report failures instead of editing tests or approving snapshots. A skill is an instruction the model may or may not follow. The enforcement is the test run itself: run `dotnet test` in CI, or in a Claude Code `Stop` hook of type `command` that exits with code 2 when the tests fail, and have a person review changes to `Snapshots/` and to the budget constants.
+
+The exit code matters. `dotnet test` returns 1 when a test fails, and for a [Claude Code hook](https://code.claude.com/docs/en/hooks) any exit code other than 0 or 2 is a non-blocking error: Claude stops anyway. Only exit code 2 keeps Claude from stopping, so the hook has to map the failure to 2, for example `dotnet test || exit 2`.
 
 ## What this does not catch
 
 - **Slow SQL.** One command can still be slow. The snapshot shows the SQL, not its execution plan.
 - **Client evaluation in the final `Select`.** EF Core allows it and nothing throws. The snapshot catches it only when it changes the SQL.
-- **Explicit client evaluation.** `AsEnumerable()` before `Where` and `Take` sends one command that reads the whole table. No rule throws and the budget passes; only the snapshot fails, because the `WHERE` and `LIMIT` are gone.
+- **Explicit client evaluation.** `AsEnumerable()` before `Where` and `Take` sends one command that reads the whole table. No rule throws and the budget passes; the snapshot fails, and so does the tracking test when the query loads entities without `AsNoTracking`.
 - **Commands outside EF Core.** A `DbCommand` created from the same connection is not seen by the interceptor.
 - **Provider differences.** SQLite is not your production database. The same LINQ can produce different SQL and different results on SQL Server or PostgreSQL. Run the snapshots against the provider you ship.
 - **Someone approving bad SQL.** The checks are only as good as the review of `Snapshots/` and of the budgets.
