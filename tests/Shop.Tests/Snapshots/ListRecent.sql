@@ -1,4 +1,10 @@
-SELECT "o0"."Id", "c"."Name", "o0"."PlacedAt"
+SELECT "o0"."Id", "c"."Name", "o0"."PlacedAt", (
+    SELECT COUNT(*)
+    FROM "OrderLines" AS "o1"
+    WHERE "o0"."Id" = "o1"."OrderId"), (
+    SELECT COALESCE(SUM(CAST("o2"."Quantity" AS INTEGER) * "o2"."UnitPriceCents"), 0)
+    FROM "OrderLines" AS "o2"
+    WHERE "o0"."Id" = "o2"."OrderId")
 FROM (
     SELECT "o"."Id", "o"."CustomerId", "o"."PlacedAt"
     FROM "Orders" AS "o"
