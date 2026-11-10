@@ -19,6 +19,17 @@ public sealed class RuleTests(TestDatabase database) : IClassFixture<TestDatabas
     }
 
     [Fact]
+    public async Task First_without_OrderBy_or_filter_throws()
+    {
+        await using var db = database.CreateContext();
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => db.Orders.FirstAsync());
+
+        Assert.Contains("FirstWithoutOrderByAndFilterWarning", error.Message);
+    }
+
+    [Fact]
     public async Task Client_side_filter_throws()
     {
         await using var db = database.CreateContext();

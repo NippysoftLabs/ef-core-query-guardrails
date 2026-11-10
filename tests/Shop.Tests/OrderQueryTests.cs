@@ -53,6 +53,9 @@ public sealed class OrderQueryTests(TestDatabase database) : IClassFixture<TestD
         var page = await OrderQueries.ListRecentAsync(db, new PageRequest(1, 10));
 
         Assert.Equal(10, page.Count);
+
+        // The seed places the last order of the last customer latest.
+        Assert.Equal(TestDatabase.Customers * TestDatabase.OrdersPerCustomer, page[0].Id);
         Assert.Equal(page.OrderByDescending(o => o.PlacedAt).ThenByDescending(o => o.Id), page);
     }
 
