@@ -1,3 +1,90 @@
 # EF Core query guardrails
 
-README pending.
+A small .NET 10 example of deterministic checks for LINQ and EF Core code, including code written by an AI agent. Reviewing a query by reading it, whether a person or a model does it, can miss things. These checks look at what EF Core actually sends to the database and fail the build when it changes.
+
+## Run it
+
+```
+dotnet test
+```
+
+Requires the .NET 10 SDK. The tests use SQLite in memory, so there is no server to install and nothing to configure.
+
+## What is checked
+
+Each read use case in `src/Shop/OrderQueries.cs` has three tests in `tests/Shop.Tests/OrderQueryTests.cs`:
+
+| Test | Fails when |
+|---|---|
+| `*_sql_matches_snapshot` | The SQL text differs from the approved file in `tests/Shop.Tests/Snapshots/`. |
+| `*_stays_within_query_budget` | The use case sends more commands than its budget (1 here). |
+| `*_tracks_nothing` | The read leaves entities in the change tracker. |
+
+The commands are captured by `QueryCounter`, a `DbCommandInterceptor` that records every reader, scalar and non-query command EF Core sends, sync or async.
+
+Fixed rules live in `ShopContext.ApplyRules` and in `PageRequest`. They throw before any SQL is sent:
+
+- `Skip`/`Take` without `OrderBy` throws (`RowLimitingOperationWithoutOrderByWarning` turned into an error).
+- `First`/`FirstOrDefault` without `OrderBy` and without a filter throws (`FirstWithoutOrderByAndFilterWarning`).
+- A filter EF Core cannot translate to SQL throws. That is EF Core's default since 3.0; `RuleTests` keeps it covered.
+- Every list takes a `PageRequest`: page 1 or more, size 1 to 100.
+
+## Approving a snapshot
+
+When the SQL changes, the test writes `<name>.received.sql` next to `<name>.sql` and fails with the number of commands on each side and the first line that differs. A person compares both files. If the new SQL is right, they rename `<name>.received.sql` to `<name>.sql` and commit it. `*.received.sql` is in `.gitignore`.
+
+Snapshot inputs are fixed on purpose. The SQL text can depend on parameter values: with EF Core 10.0.14, `Skip(10).Take(10)` produces `LIMIT @p OFFSET @p`, while `Skip(20).Take(10)` produces `LIMIT @p1 OFFSET @p`.
+
+## The agent branch
+
+Branch `agent/order-line-totals` shows the checks catching a real N+1:
+
+1. `43544d8` adds a line count and total to the recent orders list. It loads the page, then runs one query per order. Its own new test, which checks the values, passes. Three guardrails fail:
+
+   ```
+   SQL for ListRecent changed. Approved 1 command(s), received 11. ...
+   Assert.Equal() Failure: Values differ
+   Expected: 1
+   Actual:   11
+   Assert.Empty() Failure: Collection was not empty
+   Failed!  - Failed:     3, Passed:    11, Skipped:     0, Total:    14
+   ```
+
+2. `569ebe7` computes the count and the total inside the same query. The budget and tracking tests pass. The snapshot still fails, because the SQL did change; after review the new snapshot is approved in the same commit:
+
+   ```
+   Passed!  - Failed:     0, Passed:    14, Skipped:     0, Total:    14
+   ```
+
+`main` includes both commits. To see the failure yourself: `git checkout 43544d8 && dotnet test`.
+
+## The agent skill
+
+`.claude/skills/ef-query-guardrails/SKILL.md` asks an agent such as Claude Code to run `dotnet test` before it hands over a change, and to report failures instead of editing tests or approving snapshots. A skill is an instruction the model may or may not follow. The enforcement is the test run itself: run `dotnet test` in CI and have a person review changes to `Snapshots/` and to the budget constants.
+
+## What this does not catch
+
+- **Slow SQL.** One command can still be slow. The snapshot shows the SQL, not its execution plan.
+- **Client evaluation in the final `Select`.** EF Core allows it and nothing throws. The snapshot catches it only when it changes the SQL.
+- **Explicit client evaluation.** `AsEnumerable()` before `Where` and `Take` sends one command that reads the whole table. No rule throws and the budget passes; only the snapshot fails, because the `WHERE` and `LIMIT` are gone.
+- **Commands outside EF Core.** A `DbCommand` created from the same connection is not seen by the interceptor.
+- **Provider differences.** SQLite is not your production database. The same LINQ can produce different SQL and different results on SQL Server or PostgreSQL. Run the snapshots against the provider you ship.
+- **Someone approving bad SQL.** The checks are only as good as the review of `Snapshots/` and of the budgets.
+
+## Why the snapshot is hand-written
+
+`SqlSnapshot` is 65 lines, comments included, with no dependency; `SnapshotAssert` adds the xUnit call. [Verify](https://github.com/VerifyTests/Verify) (MIT) does this and more, and has an EF Core integration, but it adds `Verify`, `Argon`, `DiffEngine` and `SimpleInfoName` to the test project. For one text file per use case, comparing strings was enough. If you need diff tools, scrubbers or snapshots of other kinds, Verify is the better choice.
+
+## Layout
+
+```
+src/Shop/                    entities, ShopContext with the fixed rules, PageRequest, OrderQueries
+tests/Shop.Tests/            OrderQueryTests, RuleTests, OrderTotalsTests
+tests/Shop.Tests/Guardrails/ QueryCounter, SqlSnapshot, SnapshotAssert, TestDatabase
+tests/Shop.Tests/Snapshots/  approved SQL, one file per use case
+.claude/skills/              the agent skill
+```
+
+## License
+
+MIT. See [LICENSE](LICENSE).
