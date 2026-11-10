@@ -41,7 +41,7 @@ public static class SqlSnapshot
     }
 
     private static int CountCommands(string snapshot) =>
-        snapshot.Split(Separator).Length;
+        string.IsNullOrWhiteSpace(snapshot) ? 0 : snapshot.Split(Separator).Length;
 
     private static string NormalizeOne(string sql) =>
         string.Join("\n", sql.Replace("\r\n", "\n").Split('\n').Select(line => line.TrimEnd())).Trim();
