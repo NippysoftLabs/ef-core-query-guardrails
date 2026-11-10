@@ -1,7 +1,7 @@
 namespace Shop;
 
 /// <summary>
-/// The list queries in this repo take a page, so they cannot return the whole table.
+/// The list queries in this repo take a page, so they return at most MaxSize rows.
 /// Nothing forces a new list method to take one; that is review.
 /// </summary>
 public sealed record PageRequest

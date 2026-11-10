@@ -10,13 +10,18 @@ public class ShopContext(DbContextOptions<ShopContext> options) : DbContext(opti
     public DbSet<OrderLine> OrderLines => Set<OrderLine>();
 
     /// <summary>
-    /// Fixed rules. Call it wherever the context is configured, in the app and in the tests.
-    /// Each listed warning becomes an exception.
+    /// Fixed rules. Call it wherever the context is configured: on the typed builder, as
+    /// TestDatabase does, or inside AddDbContext, which passes an untyped builder.
+    /// Each listed warning becomes an exception. Returns the same builder.
     /// </summary>
-    public static DbContextOptionsBuilder<ShopContext> ApplyRules(DbContextOptionsBuilder<ShopContext> builder) =>
+    public static TBuilder ApplyRules<TBuilder>(TBuilder builder)
+        where TBuilder : DbContextOptionsBuilder
+    {
         builder.ConfigureWarnings(warnings => warnings.Throw(
             // Skip/Take without OrderBy: pages could repeat or skip rows.
             CoreEventId.RowLimitingOperationWithoutOrderByWarning,
             // First/FirstOrDefault without OrderBy and without a filter: the row is arbitrary.
             CoreEventId.FirstWithoutOrderByAndFilterWarning));
+        return builder;
+    }
 }

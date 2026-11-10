@@ -87,7 +87,7 @@ A person still reviews changes to `Snapshots/` and to the budget constants.
 
 ## Why the snapshot is hand-written
 
-`SqlSnapshot` is 65 lines, comments included, with no dependency; `SnapshotAssert` adds the xUnit call. [Verify](https://github.com/VerifyTests/Verify) (MIT) does this and more, and has an EF Core integration, but it adds `Verify`, `Argon`, `DiffEngine` and `SimpleInfoName` to the test project. For one text file per use case, comparing strings was enough. If you need diff tools, scrubbers or snapshots of other kinds, Verify is the better choice.
+`SqlSnapshot` is 67 lines, comments included, with no dependency; `SnapshotAssert` adds the xUnit call. [Verify](https://github.com/VerifyTests/Verify) (MIT) does this and more, and has an EF Core integration, but it adds `Verify`, `Argon`, `DiffEngine` and `SimpleInfoName` to the test project. For one text file per use case, comparing strings was enough. If you need diff tools, scrubbers or snapshots of other kinds, Verify is the better choice.
 
 ## Layout
 

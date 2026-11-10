@@ -15,9 +15,11 @@ public static class SqlSnapshot
     /// <summary>
     /// Returns null when the SQL matches. Otherwise writes name.received.sql next to the
     /// approved file and returns the reason. It never overwrites the approved file.
+    /// Creates the directory when it does not exist yet.
     /// </summary>
     public static string? Compare(string directory, string name, IEnumerable<string> commands)
     {
+        Directory.CreateDirectory(directory);
         var actual = Normalize(commands);
         var approvedPath = Path.Combine(directory, name + ".sql");
         var receivedPath = Path.Combine(directory, name + ".received.sql");
