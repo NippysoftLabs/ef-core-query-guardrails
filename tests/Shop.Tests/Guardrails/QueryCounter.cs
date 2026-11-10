@@ -15,8 +15,6 @@ public sealed class QueryCounter : DbCommandInterceptor
 
     public int Count => _commands.Count;
 
-    public void Reset() => _commands.Clear();
-
     public override InterceptionResult<DbDataReader> ReaderExecuting(
         DbCommand command, CommandEventData eventData, InterceptionResult<DbDataReader> result)
     {

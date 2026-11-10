@@ -10,7 +10,8 @@ public class ShopContext(DbContextOptions<ShopContext> options) : DbContext(opti
     public DbSet<OrderLine> OrderLines => Set<OrderLine>();
 
     /// <summary>
-    /// Fixed rules shared by the app and the tests. Each listed warning becomes an exception.
+    /// Fixed rules. Call it wherever the context is configured, in the app and in the tests.
+    /// Each listed warning becomes an exception.
     /// </summary>
     public static DbContextOptionsBuilder<ShopContext> ApplyRules(DbContextOptionsBuilder<ShopContext> builder) =>
         builder.ConfigureWarnings(warnings => warnings.Throw(
