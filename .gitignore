@@ -4,3 +4,6 @@ obj/
 TestResults/
 .vs/
 *.user
+.claude/settings.local.json
+.vscode/
+.idea/
