@@ -27,7 +27,7 @@ Each of these tests first asserts that the query returned rows. The count does n
 Fixed rules live in `ShopContext.ApplyRules` and in `PageRequest`. They throw before any SQL is sent:
 
 - `Skip`/`Take` without `OrderBy` throws (`RowLimitingOperationWithoutOrderByWarning` turned into an error).
-- `First`/`FirstOrDefault` without `OrderBy` and without a filter throws (`FirstWithoutOrderByAndFilterWarning`). The warning does not fire when there is a predicate: `FirstAsync(c => c.IsActive)` passes even if many rows match, and returns whichever one the database gives first. A predicate does not guarantee a single row; in review, check that the filter identifies one record, or add an `OrderBy`.
+- `First`/`FirstOrDefault` without `OrderBy` and without a filter throws (`FirstWithoutOrderByAndFilterWarning`). The warning does not fire when there is a predicate: `db.Customers.FirstAsync(c => c.Name.StartsWith("Customer"))` passes even if many rows match, and returns whichever one the database gives first. A predicate does not guarantee a single row; in review, check that the filter identifies one record, or add an `OrderBy`.
 - A filter EF Core cannot translate to SQL throws. That is EF Core's default since 3.0; `RuleTests` keeps it covered.
 - List methods take a `PageRequest`: page 1 or more, size 1 to 100, and an overflowing offset throws. Nothing forces a new method to take one; that is review.
 
