@@ -71,7 +71,7 @@ Branch `agent/order-line-totals` shows the checks catching a real N+1. The commi
   cd "$CLAUDE_PROJECT_DIR" && dotnet test 1>&2 || exit 2
   ```
 
-  The exit code matters. `dotnet test` returns 1 when a test fails, and for a [Claude Code hook](https://code.claude.com/docs/en/hooks) any exit code other than 0 or 2 is a non-blocking error: Claude stops anyway. Exit code 2 keeps Claude from stopping, and the hook's stderr, here the test output, becomes the reason Claude sees. Claude Code ends the turn anyway after stop hooks have continued it eight times in a row. The hook runs the whole suite at every stop, even when nothing in the code changed; remove it from `.claude/settings.json` if that is too slow for you.
+  The exit code matters. `dotnet test` returns 1 when a test fails, and for a [Claude Code hook](https://code.claude.com/docs/en/hooks) any exit code other than 0 or 2 is a non-blocking error: Claude stops anyway. Exit code 2 keeps Claude from stopping, and the hook's stderr, here the test output, becomes the reason Claude sees. Claude Code ends the turn anyway after stop hooks have continued it eight times in a row; the count resets each time Claude calls a tool, so while it keeps editing, the hook keeps it working until the tests pass. Review changes to tests as well as to `Snapshots/` and the budgets. The command uses bash syntax. On Windows, Claude Code runs hooks with Git Bash when it is installed; without Git Bash it uses PowerShell, where this command fails and does not block. The hook runs the whole suite at every stop, even when nothing in the code changed; remove it from `.claude/settings.json` if that is too slow for you.
 
 A person still reviews changes to `Snapshots/` and to the budget constants.
 
