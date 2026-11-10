@@ -1,6 +1,6 @@
 # EF Core query guardrails
 
-A small .NET 10 example of deterministic checks for LINQ and EF Core code, including code written by an AI agent. Reviewing a query by reading it, whether a person or a model does it, can miss things. These checks look at what EF Core actually sends to the database and fail the build when it changes.
+A small .NET 10 example of deterministic checks for LINQ and EF Core code, including code written by an AI agent. Reviewing a query by reading it, whether a person or a model does it, can miss things. These checks look at what EF Core actually sends to the database and fail the test run when it changes.
 
 ## Run it
 
@@ -17,7 +17,7 @@ Each read use case in `src/Shop/OrderQueries.cs` has three tests in `tests/Shop.
 | Test | Fails when |
 |---|---|
 | `*_sql_matches_snapshot` | The SQL text differs from the approved file in `tests/Shop.Tests/Snapshots/`. |
-| `*_stays_within_query_budget` | The use case sends more commands than its budget (1 here). |
+| `*_stays_within_query_budget` | The use case sends a number of commands other than its budget (1 here). |
 | `*_tracks_nothing` | The read leaves entities in the change tracker. |
 
 The commands are captured by `QueryCounter`, a `DbCommandInterceptor` that records every reader, scalar and non-query command EF Core sends, sync or async.
@@ -27,7 +27,7 @@ Fixed rules live in `ShopContext.ApplyRules` and in `PageRequest`. They throw be
 - `Skip`/`Take` without `OrderBy` throws (`RowLimitingOperationWithoutOrderByWarning` turned into an error).
 - `First`/`FirstOrDefault` without `OrderBy` and without a filter throws (`FirstWithoutOrderByAndFilterWarning`).
 - A filter EF Core cannot translate to SQL throws. That is EF Core's default since 3.0; `RuleTests` keeps it covered.
-- Every list takes a `PageRequest`: page 1 or more, size 1 to 100.
+- List methods take a `PageRequest`: page 1 or more, size 1 to 100, and an overflowing offset throws. Nothing forces a new method to take one; that is review.
 
 ## Approving a snapshot
 
@@ -37,9 +37,9 @@ Snapshot inputs are fixed on purpose. The SQL text can depend on parameter value
 
 ## The agent branch
 
-Branch `agent/order-line-totals` shows the checks catching a real N+1:
+Branch `agent/order-line-totals` shows the checks catching a real N+1. The commits on this branch were written by hand to imitate a typical agent change; no agent ran on this repository.
 
-1. `43544d8` adds a line count and total to the recent orders list. It loads the page, then runs one query per order. Its own new test, which checks the values, passes. Three guardrails fail:
+1. `43544d8` adds a line count and total to the recent orders list. It loads the page, then runs one query per order. The new test in that commit, which checks the values, passes. Three guardrails fail:
 
    ```
    SQL for ListRecent changed. Approved 1 command(s), received 11. ...
@@ -56,11 +56,11 @@ Branch `agent/order-line-totals` shows the checks catching a real N+1:
    Passed!  - Failed:     0, Passed:    14, Skipped:     0, Total:    14
    ```
 
-`main` includes both commits. To see the failure yourself: `git checkout 43544d8 && dotnet test`.
+`main` includes both commits. To see the failure yourself: `git checkout 43544d8 && dotnet test`. Later commits on `main` add a test for the `First` rule, so `main` runs 15 tests.
 
 ## The agent skill
 
-`.claude/skills/ef-query-guardrails/SKILL.md` asks an agent such as Claude Code to run `dotnet test` before it hands over a change, and to report failures instead of editing tests or approving snapshots. A skill is an instruction the model may or may not follow. The enforcement is the test run itself: run `dotnet test` in CI and have a person review changes to `Snapshots/` and to the budget constants.
+`.claude/skills/ef-query-guardrails/SKILL.md` asks an agent such as Claude Code to run `dotnet test` before it hands over a change, and to report failures instead of editing tests or approving snapshots. A skill is an instruction the model may or may not follow. The enforcement is the test run itself: run `dotnet test` in CI, or in a Claude Code `Stop` hook of type `command` that blocks the stop when it fails, and have a person review changes to `Snapshots/` and to the budget constants.
 
 ## What this does not catch
 
