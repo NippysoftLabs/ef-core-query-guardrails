@@ -4,8 +4,9 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 namespace Shop.Tests.Guardrails;
 
 /// <summary>
-/// Records the text of every command EF Core sends: readers, scalars and non-queries, sync and async.
-/// Commands sent through a connection outside EF Core are not seen.
+/// Records the text of every command EF Core is about to execute: readers, scalars and non-queries,
+/// sync and async. The *Executing methods run before the command does. Only CommandText is kept,
+/// not the parameters. Commands run through a connection outside EF Core are not seen.
 /// </summary>
 public sealed class QueryCounter : DbCommandInterceptor
 {

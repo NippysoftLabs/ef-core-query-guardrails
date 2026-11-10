@@ -1,6 +1,6 @@
 # EF Core query guardrails
 
-A small .NET 10 example of deterministic checks for LINQ and EF Core code, including code written by an AI agent. Reviewing a query by reading it, whether a person or a model does it, can miss things. These checks look at what EF Core actually sends to the database and fail the test run when it changes.
+A small .NET 10 example of deterministic checks for LINQ and EF Core code, including code written by an AI agent. Reviewing a query by reading it, whether a person or a model does it, can miss things. These checks look at the commands EF Core is about to execute against the database and fail the test run when they change.
 
 ## Run it
 
@@ -17,23 +17,25 @@ Each read use case in `src/Shop/OrderQueries.cs` has three tests in `tests/Shop.
 | Test | Fails when |
 |---|---|
 | `*_sql_matches_snapshot` | The SQL text differs from the approved file in `tests/Shop.Tests/Snapshots/`. |
-| `*_stays_within_query_budget` | The use case sends a number of commands other than its budget (1 here). |
+| `*_stays_within_query_budget` | The use case issues a number of commands other than its budget (1 here). |
 | `*_tracks_nothing` | The read leaves entities in the change tracker. |
 
-The commands are captured by `QueryCounter`, a `DbCommandInterceptor` that records every reader, scalar and non-query command EF Core sends, sync or async.
+The commands are captured by `QueryCounter`, a `DbCommandInterceptor` that records every reader, scalar and non-query command EF Core is about to execute, sync or async. It hooks `ReaderExecuting`, `ScalarExecuting` and `NonQueryExecuting`, which EF Core calls before the command runs, and it keeps only `CommandText`.
 
 Each of these tests first asserts that the query returned rows. The count does not depend on the size of the table, but it does depend on the page having rows: an N+1 sends one command per row, so on an empty page it sends one command and tracks nothing, and the budget and tracking tests would pass. The test database seeds 120 orders so every page the tests ask for is full.
 
 Fixed rules live in `ShopContext.ApplyRules` and in `PageRequest`. They throw before any SQL is sent:
 
 - `Skip`/`Take` without `OrderBy` throws (`RowLimitingOperationWithoutOrderByWarning` turned into an error).
-- `First`/`FirstOrDefault` without `OrderBy` and without a filter throws (`FirstWithoutOrderByAndFilterWarning`).
+- `First`/`FirstOrDefault` without `OrderBy` and without a filter throws (`FirstWithoutOrderByAndFilterWarning`). The warning does not fire when there is a predicate: `FirstAsync(c => c.IsActive)` passes even if many rows match, and returns whichever one the database gives first. A predicate does not guarantee a single row; in review, check that the filter identifies one record, or add an `OrderBy`.
 - A filter EF Core cannot translate to SQL throws. That is EF Core's default since 3.0; `RuleTests` keeps it covered.
 - List methods take a `PageRequest`: page 1 or more, size 1 to 100, and an overflowing offset throws. Nothing forces a new method to take one; that is review.
 
 ## Approving a snapshot
 
 When the SQL changes, the test writes `<name>.received.sql` next to `<name>.sql` and fails with the number of commands on each side and the first line that differs. A person compares both files. If the new SQL is right, they rename `<name>.received.sql` to `<name>.sql` and commit it. `*.received.sql` is in `.gitignore`.
+
+A snapshot checks the text of the SQL, not its parameters. `QueryCounter` keeps only `CommandText`, so parameter values, types, sizes and other parameter properties are not compared. The snapshot verifies the shape of the query; tests of the results, like `OrderTotalsTests`, and specific checks cover the rest.
 
 Snapshot inputs are fixed on purpose. The SQL text can depend on parameter values: with EF Core 10.0.14, `Skip(10).Take(10)` produces `LIMIT @p OFFSET @p`, while `Skip(20).Take(10)` produces `LIMIT @p1 OFFSET @p`.
 
